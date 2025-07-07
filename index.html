@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Synchro Formatter</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      h1 {
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .container {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .uploadSideBox {
+        border: 1px solid #ccc;
+        border-radius: 12px;
+        width: 450px;
+        padding: 10px;
+        background: #fafafa;
+      }
+
+      .prefix-box {
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        width: 450px;
+        min-height: 397px;
+        padding: 10px;
+        background: #fafafa;
+        overflow-y: auto;
+      }
+
+      ul,
+      .uploadSideBox ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 10px;
+      }
+
+      li {
+        background-color: #1b79b2;
+        padding: 8px;
+        margin: 5px 0;
+        border-radius: 4px;
+        text-align: center;
+        color: #eee;
+        overflow-x: hidden;
+      }
+
+      .file-upload {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: 1px 4px 4px rgba(0, 0, 0, 0.3);
+        padding: 20px;
+        border: 1px solid #ccc;
+      }
+
+      .fileList {
+        overflow-y: scroll;
+      }
+      input[type="file"] {
+        display: none;
+      }
+
+      label[for="fileInput"] {
+        background-color: #555;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+
+      #fileCount {
+        font-size: 0.9rem;
+        color: #555;
+        text-align: center;
+      }
+
+      .arrow-buttons button {
+        padding: 8px 14px;
+        font-size: 18px;
+        border: 1px solid #999;
+        background-color: white;
+        cursor: pointer;
+        border-radius: 6px;
+      }
+
+      .arrow-buttons button:hover {
+        background-color: #eee;
+      }
+
+      #runScriptButton {
+        background-color: #003366;
+        color: white;
+        padding: 12px 30px;
+        font-size: 14px;
+        border: none;
+        border-radius: 8px;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      #runScriptButton:hover {
+        background-color: #002244;
+      }
+
+      #runScriptButton:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .formatter-title {
+        font-family: "Poppins", sans-serif;
+        font-size: 3rem;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: row;
+        margin-bottom: 3rem;
+      "
+    >
+      <img
+        src="./synchro.png"
+        alt="Logo Synchro"
+        style="height: 170px; width: 270px"
+      />
+      <h1 class="formatter-title">Formatter</h1>
+    </div>
+
+    <div class="container">
+      <div class="uploadSideBox" id="leftList">
+        <div class="file-upload">
+          <input type="file" id="fileInput" multiple accept=".csv" />
+          <label for="fileInput">Insira os arquivos (.csv)</label>
+          <span id="fileCount">Nenhum arquivo selecionado</span>
+        </div>
+        <div
+          style="width: 100%; height: 320px; overflow-y: auto; padding: 10px"
+        >
+          <ul id="fileList"></ul>
+        </div>
+      </div>
+
+      <div class="arrow-buttons">
+        <button id="moveButton">
+          <strong style="font-size: 24px">> ></strong>
+        </button>
+      </div>
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 12px;
+          max-height: 450px;
+        "
+        class="rightSides"
+      >
+        <div class="prefix-box">
+          <ul id="rightList"></ul>
+        </div>
+        <button id="runScriptButton" style="font-size: 16px">
+          Executar Formatação e Download
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("fileInput");
+      const fileCount = document.getElementById("fileCount");
+      const fileList = document.getElementById("fileList");
+      const rightList = document.getElementById("rightList");
+      const moveButton = document.getElementById("moveButton");
+      const runScriptButton = document.getElementById("runScriptButton");
+
+      updateButtonState();
+      let uploadedFiles = [];
+
+      function updateButtonState() {
+        const hasUplodedItems = rightList.querySelectorAll("li").length > 0;
+        runScriptButton.disabled = !hasUplodedItems;
+      }
+
+      fileInput.addEventListener("change", (e) => {
+        uploadedFiles = Array.from(e.target.files);
+        updateLeftList();
+
+        uploadedFiles.length === 0
+          ? (fileCount.textContent = "Nenhum arquivo selecionado")
+          : (fileCount.textContent = `${uploadedFiles.length} arquivos selecionado(s)`);
+      });
+
+      function updateLeftList() {
+        fileList.innerHTML = "";
+        uploadedFiles.forEach((file) => {
+          const li = document.createElement("li");
+          li.textContent = file.name;
+          fileList.appendChild(li);
+        });
+      }
+
+      moveButton.addEventListener("click", () => {
+        rightList.innerHTML = "";
+        uploadedFiles.forEach((file) => {
+          const li = document.createElement("li");
+          li.textContent = `SYN_FORMT_${file.name}`;
+          rightList.appendChild(li);
+        });
+
+        updateButtonState();
+      });
+
+      function corrigirTexto() {
+        const prefix = "SYN_FORMT_";
+
+        uploadedFiles.forEach((file) => {
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            const content = e.target.result;
+            const lines = content.split("\n");
+
+            const processedLines = lines.map((line) => {
+              const columns = line.split(";");
+              const formattedColumn = columns.map((col) => {
+                const validString = col.trim().replace(/^"+|"+$/g, "");
+                if (/^\d{8,}$/.test(validString)) {
+                  return `"'${validString}"`;
+                }
+                return col;
+              });
+              return formattedColumn.join(";");
+            });
+
+            const correctedContent = processedLines.join("\n");
+            const blob = new Blob([correctedContent], {
+              type: "text/csv;charset=utf-8",
+            });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${prefix}${file.name}`;
+            link.click();
+          };
+          reader.readAsText(file, "utf-8");
+        });
+      }
+
+      runScriptButton.addEventListener("click", corrigirTexto);
+    </script>
+  </body>
+</html>
