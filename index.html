@@ -244,39 +244,76 @@
         updateButtonState();
       });
 
-      function corrigirTexto() {
-        const prefix = "SYN_FORMT_";
+      const CHUNK_SIZE = 500000;
 
-        uploadedFiles.forEach((file) => {
-          const reader = new FileReader();
+      async function corrigirTexto() {
+        for (const file of uploadedFiles) {
+          const reader = file.stream().getReader();
+          const decoder = new TextDecoder("utf-8");
+          let leftover = "";
+          let buffer = [];
+          const partes = [];
+          let isFirstChunk = true;
 
-          reader.onload = function (e) {
-            const content = e.target.result;
-            const lines = content.split("\n");
+          while (true) {
+            const { value, done } = await reader.read();
 
-            const processedLines = lines.map((line) => {
-              const columns = line.split(";");
-              const formattedColumn = columns.map((col) => {
-                const validString = col.trim().replace(/^"+|"+$/g, "");
-                if (/^\d{8,}$/.test(validString)) {
-                  return `"'${validString}"`;
-                }
-                return col;
-              });
-              return formattedColumn.join(";");
+            if (done) break;
+
+            const textChunk = decoder.decode(value, { stream: true });
+            const lines = (leftover + textChunk).split("\n");
+            leftover = lines.pop();
+
+            for (const line of lines) {
+              const formatted =
+                line
+                  .split(";")
+                  .map((col) => {
+                    const validString = col.trim().replace(/^"+|"+$/g, "");
+                    return /^\d{8,}$/.test(validString)
+                      ? `'${validString}`
+                      : col;
+                  })
+                  .join(";") + "\n";
+
+              buffer.push(formatted);
+
+              if (buffer.length >= CHUNK_SIZE) {
+                partes.push(buffer.join(""));
+                buffer = [];
+              }
+            }
+          }
+
+          if (leftover) {
+            const formatted =
+              leftover
+                .split(";")
+                .map((col) => {
+                  const validString = col.trim().replace(/^"+|"+$/g, "");
+                  return /^\d{8,}$/.test(validString) ? `'${validString}` : col;
+                })
+                .join(";") + "\n";
+            buffer.push(formatted);
+          }
+
+          if (buffer.length > 0) {
+            partes.push(buffer.join(""));
+          }
+
+          try {
+            const finalBlob = new Blob(["\uFEFF", ...partes], {
+              type: "text/plain;charset=utf-8",
             });
 
-            const correctedContent = processedLines.join("\n");
-            const blob = new Blob([correctedContent], {
-              type: "text/csv;charset=utf-8",
-            });
             const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `${prefix}${file.name}`;
+            link.href = URL.createObjectURL(finalBlob);
+            link.download = `SYN_FORMT_${file.name}`;
             link.click();
-          };
-          reader.readAsText(file, "utf-8");
-        });
+          } catch (e) {
+            alert(`Erro ao gerar o arquivo final.${e}`);
+          }
+        }
       }
 
       runScriptButton.addEventListener("click", corrigirTexto);
